@@ -30,6 +30,15 @@
 #include <vector>
 #include <cassert>
 #include "lfsr64.h"
+#include "config.h"   // when work with p4
+
+//int VIP_NUM = 128;                       // must be power of 2
+//int VIP_MASK = (VIP_NUM - 1);
+//int CONN_NUM = (16 * 1024 * VIP_NUM);    // must be multiple of VIP_NUM
+//int DIP_NUM = (VIP_NUM * 128);
+//int LOG_INTERVAL = (50 * 1000000);       // must be multiple of 1E6
+//int HT_SIZE = 4096;                    // must be power of 2
+//int STO_NUM = (CONN_NUM);                // simulate control plane
 
 using namespace std;
 
@@ -89,28 +98,28 @@ inline ostream& operator <<(ostream & os, Tuple3 const & tuple) {
   return os;
 }
 #pragma pack(pop)
-//
-//template<int coreId = 0>
-//inline void getVip(Addr_Port *vip) {
-//  static int addr = 0x0a800000 + coreId * 10;
-//  vip->addr = addr++;
-//  vip->port = 0;
-//  if (addr >= 0x0a800000 + VIP_NUM) addr = 0x0a800000;
-//}
-//
-//template<int coreId = 0>
-//inline void getTuple3(Tuple3* tuple3) {
-//  static LFSRGen<Tuple3> tuple3Gen(0xe2211, CONN_NUM, coreId * 10);
-//  tuple3Gen.gen(tuple3);
-//}
-//
-//template<int coreId = 0>
-//inline void get(Tuple3* tuple, Addr_Port* vip) {
-//  getTuple3<coreId>(tuple); // this is why we assume CONN_NUM is multiple of VIP_NUM
-//  getVip<coreId>(vip);
-//  if(tuple->protocol&1) tuple->protocol = 17;
-//  else tuple->protocol = 6;
-//}
+
+template<int coreId = 0>
+inline void getVip(Addr_Port *vip) {
+  static int addr = 0x0a800000 + coreId * 10;
+  vip->addr = addr++;
+  vip->port = 0;
+  if (addr >= 0x0a800000 + VIP_NUM) addr = 0x0a800000;
+}
+
+template<int coreId = 0>
+inline void getTuple3(Tuple3* tuple3) {
+  static LFSRGen<Tuple3> tuple3Gen(0xe2211, CONN_NUM, coreId * 10);
+  tuple3Gen.gen(tuple3);
+}
+
+template<int coreId = 0>
+inline void get(Tuple3* tuple, Addr_Port* vip) {
+  getTuple3<coreId>(tuple); // this is why we assume CONN_NUM is multiple of VIP_NUM
+  getVip<coreId>(vip);
+  if(tuple->protocol&1) tuple->protocol = 17;
+  else tuple->protocol = 6;
+}
 
 inline int diff_ms(timeval t1, timeval t2) {
   return (((t1.tv_sec - t2.tv_sec) * 1000000) + (t1.tv_usec - t2.tv_usec)) / 1000;

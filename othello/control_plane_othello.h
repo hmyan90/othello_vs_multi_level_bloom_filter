@@ -20,7 +20,6 @@
 
 using namespace std;
 
-
 template<class keyType, class valueType, uint8_t valueLength>
 class DataPlaneOthello;
 
@@ -36,8 +35,6 @@ class DataPlaneOthello;
  * when delete, move key-value and update corresponding index
  */
 template<class keyType, class valueType, uint8_t valueLength = 0>
-
-
 class ControlPlaneOthello {
   static_assert(sizeof(valueType)*8>=valueLength, "sizeof(valueType)*8 < valueLength");
 
@@ -48,8 +45,13 @@ private:
   const static uint32_t L = valueLength ? valueLength : sizeof(valueType) * 8; //!< the bit length of return value.
   const static uint64_t LMASK = ((L == 64) ? (~0ULL) : ((1ULL << L) - 1));
 public:
-  ControlPlaneOthello() {
-    resizeKey(0);
+  ControlPlaneOthello(vector<keyType>& _keys = 0, uint32_t keycount = 0, vector<valueType>& _values = 0) {
+    resizeKey(keycount);
+
+    for (int i = 0; i < keycount; ++i) {
+        kvs[i].first = _keys[i];
+        kvs[i].second = _values[i];
+    } 
     
     resetBuildState();
     
@@ -60,13 +62,14 @@ public:
   //*************DATA Plane
   //****************************************
 private:
+  vector<valueType> mem; //!< actual memory space for arrayA and arrayB.
   vector<uint32_t> indMem;
   uint32_t ma = 0; //!< length of arrayA.
   uint32_t mb = 0; //!< length of arrayB
   uint32_t hashSizeReserve = 0;
   Hasher32<keyType> Ha; //<! hash function Ha
   Hasher32<keyType> Hb; //<! hash function Hb
-  valueType EmptyValue = valueType(); 
+  
   //inline int getMemSize() {
   //  if (valueLength) return (hashSizeReserve + 1) * 3 / 4;
   //  else return hashSizeReserve;
@@ -86,20 +89,44 @@ private:
     getIndexB(k, ret2);
   }
   
-  /*!
-   \brief returns a 64-bit integer query value for a key.
-   */
-  inline uint32_t queryIndex(const keyType &k) {
-    uint32_t ha, hb;
-    getIndexAB(k, ha, hb);
-    uint32_t aa = indMem[ha];
-    uint32_t bb = indMem[hb];
-    return aa ^ bb;
+  void inline memSet(int index, valueType value) {
+    static_assert(valueLength == 0 || (valueLength == 12 && sizeof(valueType)==sizeof(uint16_t)), "");
+    
+    if (valueLength) {
+      const static uint16_t MASK[] = { 0xF000, 0x000F };
+      value &= 0x0FFF;
+      uint16_t* addr = (uint16_t*) ((uint8_t*) &mem + index * 3 / 2);
+      
+      if (index & 1) {
+        value <<= 4;
+        *addr &= MASK[1];
+        *addr |= value;
+      } else {
+        *addr &= MASK[0];
+        *addr |= value;
+      }
+    } else {
+      mem[index] = value;
+    }
   }
   
 public:
-  int getMemSize() {
-    return hashSizeReserve;
+  inline int getMemSize() {
+    if (valueLength) return (hashSizeReserve + 1) * 3 / 4;
+    else return hashSizeReserve;
+  }
+
+  valueType inline memGet(int index) {
+    static_assert(valueLength == 0 || (valueLength == 12 && sizeof(valueType)==sizeof(uint16_t)), "");
+    
+    if (valueLength) {
+      uint16_t res = *(uint16_t*) ((uint8_t*) &mem + index * 3 / 2); ///
+      if (index & 1) res >>= 4;
+      
+      return res & 0x0FFF;
+    } else {
+      return mem[index];
+    }
   }
   
   uint32_t getMa() const {
@@ -115,6 +142,29 @@ public:
     return Hb;
   }
   
+  /*!
+   \brief returns a 64-bit integer query value for a key.
+   */
+  inline valueType query(const keyType &k) {
+    uint32_t ha, hb;
+    getIndexAB(k, ha, hb);
+    valueType aa = memGet(ha);
+    valueType bb = memGet(hb);
+    ////printf("%llx   [%x] %x ^ [%x] %x = %x\n", k,ha,aa&LMASK,hb,bb&LMASK,(aa^bb)&LMASK);
+    return aa ^ bb;
+  }
+  
+  /*!
+   \brief returns a 64-bit integer query value for a key.
+   */
+  inline uint32_t queryIndex(const keyType &k) {
+    uint32_t ha, hb;
+    getIndexAB(k, ha, hb);
+    uint32_t aa = indMem[ha];
+    uint32_t bb = indMem[hb];
+    return aa ^ bb;
+  }
+  
   //****************************************
   //*************CONTROL plane
   //****************************************
@@ -124,12 +174,17 @@ private:
   vector<pair<keyType, valueType>> kvs;
 
   inline valueType randVal(int i = 0) {
-    valueType v;
+    valueType v = rand();
     
-    for (int i = 0; i < sizeof(valueType); ++i) {
-      *(((unsigned char*) &v) + i) = rand();
+    if (sizeof(valueType) > 4) {
+      *(((int *) &v) + 1) = rand();
     }
-    
+    if (sizeof(valueType) > 8) {
+      *(((int *) &v) + 2) = rand();
+    }
+    if (sizeof(valueType) > 12) {
+      *(((int *) &v) + 3) = rand();
+    }
     return v;
   }
   
@@ -159,6 +214,7 @@ private:
       hashSizeReserve = nextMa + nextMb;
       ma = nextMa;
       mb = nextMb;
+      mem.resize(getMemSize());
       free(filled);
       filled = (bool*) malloc(getFilledSize());
       indMem.resize(hashSizeReserve);
@@ -175,6 +231,7 @@ private:
   
   void resetBuildState() {
     for (int i = 0; i < hashSizeReserve; ++i) {
+      memSet(i, randVal(i));
       indMem[i] = rand();
     }
     // _ind needn't to be initialized
@@ -265,7 +322,7 @@ private:
   //! the value of root is set, and set all its children according to root values
   //! Assume: values are present, and the connected forest are properly set
   //! Side effect: all node in this tree is set and if updateToFilled, the filled vector will record filled values
-  template<bool updateToFilled>
+  template<bool updateToFilled, bool fillValue, bool fillIndex>
   void fillTreeBFS(int root) {
     if (updateToFilled) setFilled(root);
     
@@ -302,8 +359,16 @@ private:
           continue;
         }
         
-        uint32_t indexToFill = currKeyIndex ^ indMem[hasBeenFilled];
-        indMem[toBeFilled] = indexToFill;
+        if (fillValue) {
+          valueType &value = kvs[currKeyIndex].second;
+          valueType valueToFill = value ^ memGet(hasBeenFilled);
+          memSet(toBeFilled, valueToFill);
+        }
+        
+        if (fillIndex) {
+          uint32_t indexToFill = currKeyIndex ^ indMem[hasBeenFilled];
+          indMem[toBeFilled] = indexToFill;
+        }
         
         Q.push_back(toBeFilled);
         if (updateToFilled) setFilled(toBeFilled);
@@ -319,8 +384,8 @@ private:
   void fillValue() {
     for (int i = 0; i < ma + mb; i++)
       if (disj.isRoot(i)) {  // we can only fix one end's value in a cc of keys, then fix the roots'
-        indMem[i] = rand();
-        fillTreeBFS<true>(i);
+        memSet(i, randVal());
+        fillTreeBFS<true, true, true>(i);
       }
   }
   
@@ -409,9 +474,6 @@ private:
     return false;
   }
   
-  //****************************************
-  //*********AS A MAP
-  //****************************************
 public:
   inline bool insert(pair<keyType, valueType> &&kv) {
     resizeKey(keyCnt + 1);
@@ -430,7 +492,7 @@ public:
       }
     } else {  // acyclic, just add
       addEdge(lastIndex, ha, hb);
-      fillTreeBFS<false>(ha);
+      fillTreeBFS<false, true, true>(ha);
     }
 //    assert(checkIntegrity());
     return true;
@@ -442,12 +504,12 @@ public:
    \note after this option, the number of keys, *keyCnt* decrease by 1. The key currently stored in *keys[kid]* will be replaced by the last key in *keys[]*. \n *sizeof(valueType)* is the number of bytes of each value.
    \note remember to adjust the value[] array if necessary.
    */
-  void eraseAt(uint32_t kid, bool changeValue = true) {
+  void eraseAt(uint32_t kid) {
     uint32_t ha, hb;
     getIndexAB(kvs[kid].first, ha, hb);
     keyCnt--;
     
-    // delete the edge of kid
+    // delete the edges of kid
     uint32_t headA = keyIndicesOfThisNode[ha];
     if (headA == kid) {
       keyIndicesOfThisNode[ha] = nextKeyOfThisKeyAtPartA[kid];
@@ -469,10 +531,7 @@ public:
     
     // move the last to fill the hole
     if (kid == keyCnt) return;
-    
-    if (changeValue) kvs[kid] = kvs[keyCnt];
-    else kvs[kid].first = kvs[keyCnt].first;
-    
+    kvs[kid] = kvs[keyCnt];
     uint32_t hal, hbl;
     getIndexAB(kvs[kid].first, hal, hbl);
     
@@ -498,59 +557,34 @@ public:
     }
     
     // update the mapped index
-    fillTreeBFS<false>(hal);
+    fillTreeBFS<false, false, true>(hal);
 //    assert(checkIntegrity());
   }
   
-  //inline void updateMapping(keyType &k, valueType &val) {
-  //  updateValueAt(queryIndex(k), val);
-  //}
-  
-  //inline void updateMapping(keyType &&k, valueType &&val) {
-  //  updateValueAt(queryIndex(k), val);
-  //}
-  
-  //inline void updateValueAt(int index, valueType val) {
-  //  if (index >= keyCnt) throw exception();
-  
-  //  kvs[index].second = val;
-  //}
-  
   inline void updateMapping(keyType &k, valueType &val) {
-    std::cout << "update key " << k << " value " << val;
     updateValueAt(queryIndex(k), val);
   }
-  
+
   inline void updateMapping(keyType &&k, valueType &&val) {
     updateValueAt(queryIndex(k), val);
   }
   
-  /*!
-   \brief returns a 64-bit integer query value for a key.
-   */
-  inline valueType& query(const keyType &k) {
-    uint32_t index = queryIndex(k);
-    if (index < keyCnt && kvs[index].first == k) {
-      //std::cout<<"found key\n";
-      //return &(kvs[index].second);
-      return kvs[index].second;
-    } else {
-      //std::cout<<"not found key\n";
-      return EmptyValue;
-   }  
-  }
-  
   inline void updateValueAt(int index, valueType val) {
-    //std::cout<<"update index " <<index<<" value " << val;
-    if (index >= keyCnt) {
-      throw exception();
-    }
+    if (index >= keyCnt) throw exception();
     
     kvs[index].second = val;
   }
-  
+
+  //****************************************
+  //*********AS A SET
+  //****************************************
+public:
   inline const vector<pair<keyType, valueType>>& getKeyValuePairs() const {
     return kvs;
+  }
+  
+  inline const vector<valueType>& getMem() const {
+    return mem;
   }
   
   inline uint32_t size() {
@@ -562,11 +596,11 @@ public:
     return (index < keyCnt && kvs[index].first == x);
   }
   
-  inline void erase(keyType& x, bool changeValue = true) {
+  inline void erase(keyType& x) {
     assert(isMember(x));
     
     uint32_t index = queryIndex(x);
-    eraseAt(index, changeValue);
+    eraseAt(index);
   }
   
   bool checkIntegrity() {

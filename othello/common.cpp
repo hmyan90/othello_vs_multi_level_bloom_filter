@@ -7,6 +7,12 @@
 #include <signal.h>
 //#include <gperftools/profiler.h>
 
+#ifndef FIX_DIP_NUM
+ofstream queryLog(NAME ".query.data", ios::app), addLog(NAME ".add.data", ios::app), memoryLog(NAME ".mem.data", ios::app), dynamicLog(NAME ".dynamic.data", ios::app);
+#else
+ofstream queryLog(NAME ".query.fix.data", ios::app), addLog(NAME ".add.fix.data", ios::app), memoryLog(NAME ".mem.fix.data", ios::app), dynamicLog(NAME ".dynamic.fix.data", ios::app);
+#endif
+
 int stick_this_thread_to_core(int core_id) {
   int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
   if (core_id < 0 || core_id >= num_cores) return EINVAL;

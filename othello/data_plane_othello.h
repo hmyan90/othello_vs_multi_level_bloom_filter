@@ -151,5 +151,49 @@ public:
   inline const vector<valueType>& getMem() const {
     return mem;
   }
+  
+  //****************************************
+  //*********ADJUSTMENTS
+  //****************************************
+public:
+  uint64_t reportDataPlaneMemUsage() const {
+    uint64_t size = mem.size() * sizeof(valueType);
+    
+    cout << "Ma: " << ma * sizeof(valueType) << ", Mb: " << mb * sizeof(valueType) << endl;
+    
+    return size;
+  }
+  
+  // return the mapped count of a value
+  vector<uint32_t> getCnt() const {
+    vector<uint32_t> cnt(1ULL << L);
+    
+    for (int i = 0; i < ma; i++) {
+      for (int j = ma; j < ma + mb; j++) {
+        cnt[memGet(i) ^ memGet(j)]++;
+      }
+    }
+    return cnt;
+  }
+  
+  void outputMappedValue(ofstream& fout) const {
+    bool partial = (uint64_t) ma * (uint64_t) mb > (1UL << 22);
+    
+    if (partial) {
+      for (int i = 0; i < (1 << 22); i++) {
+        fout << uint32_t(memGet(rand() % (ma - 1)) ^ memGet(ma + rand() % (mb - 1))) << endl;
+      }
+    } else {
+      for (int i = 0; i < ma; i++) {
+        for (int j = ma; j < ma + mb; ++j) {
+          fout << uint32_t(memGet(ma) ^ memGet(j)) << endl;
+        }
+      }
+    }
+  }
+  
+  int getStaticCnt() {
+    return ma * mb;
+  }
 };
 
