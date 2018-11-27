@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <algorithm>
 #include "mlbf/mlbf.hpp"
-#include "othello2/control_plane_othello.h"
+#include "othello/control_plane_othello.h"
 // #include "Othello/othello.h"
 
 using namespace std;
