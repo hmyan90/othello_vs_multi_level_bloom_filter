@@ -7,9 +7,9 @@ using bf::basic_bloom_filter;
 using namespace std;
 
 bool MLBFilter::build() {
-    bool done = false;
-    int r_remain = rCapacity;
-    int s_remain = sCapacity;
+    //bool done = false;
+    //int r_remain = rCapacity;
+    //int s_remain = sCapacity;
     vector<string>* to_insert;
     vector<string>* to_check;
 

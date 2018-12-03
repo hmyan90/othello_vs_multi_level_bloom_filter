@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "mlbf/mlbf.hpp"
 #include "othello/control_plane_othello.h"
-// #include "Othello/othello.h"
 
 using namespace std;
 
@@ -39,12 +38,10 @@ public:
 
 class OthelloStorage: public TestBase {
 public:
-  // Othello<Key, Val> oth;
   ControlPlaneOthello<Key, Val>* oth;
 
 
   virtual void build(vector<string>& _revoked, vector<string>& _stay ) {
-    // bool revoke_val = REVOKED_FLAG;
     vector<Key> all_keys;
     for (int i = 0; i < _revoked.size(); ++i) {
       all_keys.push_back(_revoked[i]);
@@ -106,8 +103,6 @@ vector<Key> stay;
 
 int loadData(char* revoked_filename, char* stay_filename) {
   string value;
-  struct timeval sStart, sEnd;
-  uint32_t valueMemUsed = 0;
   
   // load revoked data
   ifstream revoked_data(revoked_filename);
@@ -121,7 +116,6 @@ int loadData(char* revoked_filename, char* stay_filename) {
   while (getline(revoked_data, value, '\n')) {
     std::string value1 = value.substr(0, value.length()/2);
     revoked.push_back(value1);
-    // valueMemUsed += key.length() * sizeof(char) + value.length() * sizeof(char);
   }
   revoked_data.close();
 
