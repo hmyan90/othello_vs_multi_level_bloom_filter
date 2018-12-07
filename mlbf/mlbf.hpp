@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <bf.h>
 #include "bf/basic.h"
 #include <cmath>
 #include <deque>
@@ -14,13 +13,14 @@ class MLBFilter {
         int sCapacity;
         vector<string> revoked;
         vector<string> stay;
+        float firstFpRate;
         float baseFpRate;
         vector<basic_bloom_filter> mlbfilters;
     
         bool build();
 
     public:
-        MLBFilter(int _rCapacity, int _sCapacity, vector<string> _revoked, vector<string> _stay, float _baseFpRate);
+        MLBFilter(int _rCapacity, int _sCapacity, vector<string> _revoked, vector<string> _stay, float firstFpRate, float _baseFpRate);
 
         bool contains(string data);
 

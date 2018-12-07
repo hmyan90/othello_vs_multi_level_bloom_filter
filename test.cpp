@@ -4,6 +4,7 @@
 #include <cassert>
 #include <sys/time.h>
 #include <algorithm>
+#include <cstdint>
 #include "mlbf/mlbf.hpp"
 #include "othello/control_plane_othello.h"
 
@@ -81,7 +82,8 @@ public:
 
   virtual void build(vector<string>& _revoked, vector<string>& _stay) {
     gettimeofday(&sStart, NULL);
-    mlbf = new MLBFilter(_revoked.size(), _stay.size(), _revoked, _stay, 0.5);
+    float firstFpRate = _revoked.size() * sqrt(0.5) / _stay.size();
+    mlbf = new MLBFilter(_revoked.size(), _stay.size(), _revoked, _stay, firstFpRate, 0.5);
     gettimeofday(&sEnd, NULL);
     cout << "MLBF build time: " << diffs_ms(sEnd, sStart) << "ms\n";
   }
