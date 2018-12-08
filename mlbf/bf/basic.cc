@@ -26,8 +26,9 @@ basic_bloom_filter::basic_bloom_filter(double fp, size_t capacity, size_t seed,
                                        bool double_hashing)
 {
   auto required_cells = m(fp, capacity);
-  auto optimal_k = k(required_cells, capacity);
-  // auto optimal_k = 1;
+  // auto optimal_k = k(required_cells, capacity);
+  auto optimal_k = 1;
+  std::cout << "Using " << optimal_k << " hash functions\n" << std::endl;
   bits_.resize(required_cells);
   hasher_ = make_hasher(optimal_k, seed, double_hashing);
 }

@@ -39,8 +39,8 @@ bool MLBFilter::build() {
             n = to_insert->size() + to_check->size(); // speed up for last several level
         }
 
-        //mlbfilters.emplace_back(curFpRate, n); // a desired false-positive probability and capacity
-        mlbfilters.emplace_back(baseFpRate, to_check->size() + to_insert->size());      
+        mlbfilters.emplace_back(curFpRate, n); // a desired false-positive probability and capacity
+        //mlbfilters.emplace_back(baseFpRate, to_check->size() + to_insert->size());      
 
         for (vector<string>::iterator it = to_insert->begin(); it != to_insert->end(); ++it){
             mlbfilters.back().add(*it);
